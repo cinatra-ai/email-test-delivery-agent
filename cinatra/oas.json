@@ -1,0 +1,165 @@
+{
+  "agentspec_version": "26.1.0",
+  "component_type": "Flow",
+  "id": "email-test-delivery-flow",
+  "name": "Email Test Delivery Agent",
+  "description": "Re-entrant HITL surface to send a test preview of an outreach campaign before launch.",
+  "metadata": {
+    "cinatra": {
+      "type": "node",
+      "hitlScreens": [
+        "@cinatra-ai/email-test-delivery-agent:input"
+      ],
+      "packageName": "@cinatra-ai/email-test-delivery-agent",
+      "packageVersion": "0.1.1",
+      "docsRef": "docs/developer/wayflow-input-message-node-contract.md"
+    }
+  },
+  "inputs": [
+    {
+      "title": "campaignId",
+      "type": "string",
+      "json_schema": {
+        "format": "uuid"
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "title": "testResult",
+      "type": "string"
+    }
+  ],
+  "start_node": {
+    "$component_ref": "start"
+  },
+  "nodes": [
+    {
+      "$component_ref": "start"
+    },
+    {
+      "$component_ref": "test_form_gate"
+    },
+    {
+      "$component_ref": "end"
+    }
+  ],
+  "control_flow_connections": [
+    {
+      "component_type": "ControlFlowEdge",
+      "name": "start_to_test_form_gate",
+      "from_node": {
+        "$component_ref": "start"
+      },
+      "to_node": {
+        "$component_ref": "test_form_gate"
+      }
+    },
+    {
+      "component_type": "ControlFlowEdge",
+      "name": "test_form_gate_to_end",
+      "from_node": {
+        "$component_ref": "test_form_gate"
+      },
+      "to_node": {
+        "$component_ref": "end"
+      }
+    }
+  ],
+  "data_flow_connections": [
+    {
+      "component_type": "DataFlowEdge",
+      "name": "test_form_gate_to_end_testResult",
+      "source_node": {
+        "$component_ref": "test_form_gate"
+      },
+      "source_output": "testResult",
+      "destination_node": {
+        "$component_ref": "end"
+      },
+      "destination_input": "testResult"
+    }
+  ],
+  "$referenced_components": {
+    "start": {
+      "component_type": "StartNode",
+      "id": "start",
+      "name": "Inputs",
+      "metadata": {
+        "cinatra": {
+          "required": [
+            "campaignId"
+          ],
+          "hidden": [
+            "campaignId"
+          ]
+        }
+      },
+      "inputs": [
+        {
+          "title": "campaignId",
+          "type": "string",
+          "json_schema": {
+            "format": "uuid"
+          }
+        }
+      ]
+    },
+    "test_form_gate": {
+      "component_type": "InputMessageNode",
+      "id": "test_form_gate",
+      "name": "Send a test email",
+      "metadata": {
+        "cinatra": {
+          "riskClass": "test_send",
+          "requiresApproval": false,
+          "renderer": "@cinatra-ai/email-test-delivery-agent:input",
+          "a2uiSurfaceId": "email-test-delivery:gate:input",
+          "inputMessageSchema": {
+            "type": "object",
+            "x-renderer": "@cinatra-ai/email-test-delivery-agent:input",
+            "x-envelope": "json-string",
+            "x-envelope-shape": {
+              "userResponse": {
+                "type": "string"
+              },
+              "lastSendResult": {
+                "type": [
+                  "object",
+                  "null"
+                ]
+              }
+            },
+            "properties": {
+              "testResult": {
+                "type": "string",
+                "title": "Test result (JSON-encoded { userResponse, lastSendResult })"
+              }
+            },
+            "required": [
+              "testResult"
+            ]
+          }
+        }
+      },
+      "inputs": [],
+      "outputs": [
+        {
+          "title": "testResult",
+          "type": "string"
+        }
+      ]
+    },
+    "end": {
+      "component_type": "EndNode",
+      "id": "end",
+      "name": "End",
+      "outputs": [
+        {
+          "title": "testResult",
+          "type": "string"
+        }
+      ]
+    }
+  }
+}

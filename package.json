@@ -1,0 +1,26 @@
+{
+  "name": "@cinatra-ai/email-test-delivery-agent",
+  "version": "0.1.1",
+  "license": "Apache-2.0",
+  "description": "Sends a test preview of an email-outreach campaign to a designated recipient before the real launch.",
+  "type": "module",
+  "cinatra": {
+    "apiVersion": "cinatra.ai/v1",
+    "kind": "agent",
+    "dependencies": [
+      {
+        "packageName": "@cinatra-ai/email-delivery-agent",
+        "edgeType": "runtime",
+        "versionConstraint": {
+          "kind": "semver-range",
+          "range": "*"
+        },
+        "requirement": "required",
+        "kind": "agent"
+      }
+    ],
+    "agentDependencies": {
+      "@cinatra-ai/email-delivery-agent": "^0.1.0"
+    }
+  }
+}
