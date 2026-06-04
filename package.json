@@ -1,6 +1,6 @@
 {
   "name": "@cinatra-ai/email-test-delivery-agent",
-  "version": "0.1.1",
+  "version": "0.1.0",
   "license": "Apache-2.0",
   "description": "Sends a test preview of an email-outreach campaign to a designated recipient before the real launch.",
   "type": "module",
