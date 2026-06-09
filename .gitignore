@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Build output (tsconfig outDir)
+dist/
+*.tsbuildinfo
+
+# Test coverage
+coverage/
+
+# Lockfile — standalone extension repos resolve fresh in CI (see ci.yml)
+pnpm-lock.yaml
+
+# Logs
+*.log
+
+# Env files & secrets
+.env
+.env.*
+!.env.example
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
