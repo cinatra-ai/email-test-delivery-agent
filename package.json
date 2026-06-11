@@ -4,6 +4,10 @@
   "license": "Apache-2.0",
   "description": "Sends a test preview of an email-outreach campaign to a designated recipient before the real launch.",
   "type": "module",
+  "files": [
+    "cinatra",
+    "skills"
+  ],
   "cinatra": {
     "apiVersion": "cinatra.ai/v1",
     "kind": "agent",
