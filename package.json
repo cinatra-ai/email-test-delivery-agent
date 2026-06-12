@@ -25,6 +25,13 @@
     ],
     "agentDependencies": {
       "@cinatra-ai/email-delivery-agent": "^0.1.0"
-    }
+    },
+    "fieldRenderers": [
+      {
+        "id": "@cinatra-ai/email-test-delivery-agent:input",
+        "kind": "test-delivery-input",
+        "priority": 80
+      }
+    ]
   }
 }
