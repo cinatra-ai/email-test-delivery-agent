@@ -32,6 +32,7 @@
         "kind": "test-delivery-input",
         "priority": 80
       }
-    ]
+    ],
+    "consumes": []
   }
 }
