@@ -2,7 +2,7 @@
 
 Send a test preview of an outreach campaign to a single address before the real launch. Pick which drafts to include — one initial, a chosen handful, or every initial draft — fire the test, inspect the result inline, and re-send as many times as you need before advancing to the live campaign.
 
-Install from the Cinatra marketplace. The agent requires one runtime dependency — `email-delivery-agent` (exact version `0.1.0`) — which the marketplace installer resolves automatically.
+Install from the Cinatra marketplace. The agent requires one runtime dependency — `email-delivery-agent` (`^0.1.0`) — which the marketplace installer resolves automatically.
 
 The agent surfaces a human-in-the-loop gate inside the campaign workflow. A user opens the gate, enters a recipient address, and picks a draft selection mode: `random_initial` (one randomly chosen initial draft), `specific_initial` (a named list of draft UUIDs), or `all_initial` (every initial draft). Clicking Send fires the `email_outreach_send_test_start` MCP primitive through the renderer's server action — not via an LLM tool call — and the result appears inline. The user can re-send any number of times without affecting real recipients, then click Continue to emit the `testResult` output and advance the workflow.
 
