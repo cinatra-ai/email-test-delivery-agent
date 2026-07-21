@@ -22,6 +22,11 @@
       "json_schema": {
         "format": "uuid"
       }
+    },
+    {
+      "title": "cinatra_run_id",
+      "type": "string",
+      "default": ""
     }
   ],
   "outputs": [
@@ -132,6 +137,18 @@
     },
     {
       "component_type": "DataFlowEdge",
+      "name": "gate_testResult_to_perform_envelope",
+      "source_node": {
+        "$component_ref": "test_form_gate"
+      },
+      "source_output": "testResult",
+      "destination_node": {
+        "$component_ref": "perform_test_send"
+      },
+      "destination_input": "envelopeJson"
+    },
+    {
+      "component_type": "DataFlowEdge",
       "name": "parse_action_to_branch_action",
       "source_node": {
         "$component_ref": "parse_action"
@@ -141,54 +158,6 @@
         "$component_ref": "branch_on_action"
       },
       "destination_input": "action"
-    },
-    {
-      "component_type": "DataFlowEdge",
-      "name": "parse_recipient_to_perform",
-      "source_node": {
-        "$component_ref": "parse_action"
-      },
-      "source_output": "recipientEmail",
-      "destination_node": {
-        "$component_ref": "perform_test_send"
-      },
-      "destination_input": "recipientEmail"
-    },
-    {
-      "component_type": "DataFlowEdge",
-      "name": "parse_selectionMode_to_perform",
-      "source_node": {
-        "$component_ref": "parse_action"
-      },
-      "source_output": "selectionMode",
-      "destination_node": {
-        "$component_ref": "perform_test_send"
-      },
-      "destination_input": "selectionMode"
-    },
-    {
-      "component_type": "DataFlowEdge",
-      "name": "parse_initialIds_to_perform",
-      "source_node": {
-        "$component_ref": "parse_action"
-      },
-      "source_output": "specificInitialDraftIds",
-      "destination_node": {
-        "$component_ref": "perform_test_send"
-      },
-      "destination_input": "specificInitialDraftIds"
-    },
-    {
-      "component_type": "DataFlowEdge",
-      "name": "parse_followUpIds_to_perform",
-      "source_node": {
-        "$component_ref": "parse_action"
-      },
-      "source_output": "specificFollowUpDraftIds",
-      "destination_node": {
-        "$component_ref": "perform_test_send"
-      },
-      "destination_input": "specificFollowUpDraftIds"
     },
     {
       "component_type": "DataFlowEdge",
@@ -273,6 +242,30 @@
         "$component_ref": "end"
       },
       "destination_input": "testResult"
+    },
+    {
+      "component_type": "DataFlowEdge",
+      "name": "start_cinatra_run_id_to_parse_action",
+      "source_node": {
+        "$component_ref": "start"
+      },
+      "source_output": "cinatra_run_id",
+      "destination_node": {
+        "$component_ref": "parse_action"
+      },
+      "destination_input": "cinatra_run_id"
+    },
+    {
+      "component_type": "DataFlowEdge",
+      "name": "start_cinatra_run_id_to_perform_test_send",
+      "source_node": {
+        "$component_ref": "start"
+      },
+      "source_output": "cinatra_run_id",
+      "destination_node": {
+        "$component_ref": "perform_test_send"
+      },
+      "destination_input": "cinatra_run_id"
     }
   ],
   "$referenced_components": {
@@ -286,7 +279,8 @@
             "campaignId"
           ],
           "hidden": [
-            "campaignId"
+            "campaignId",
+            "cinatra_run_id"
           ]
         }
       },
@@ -297,6 +291,11 @@
           "json_schema": {
             "format": "uuid"
           }
+        },
+        {
+          "title": "cinatra_run_id",
+          "type": "string",
+          "default": ""
         }
       ]
     },
@@ -398,8 +397,7 @@
         "input": {
           "userResponse": "{{ userResponse }}"
         },
-        "agent_run_id": "{{ cinatra_run_id }}",
-        "result_input_passthrough": true
+        "agent_run_id": "{{ cinatra_run_id }}"
       },
       "metadata": {
         "cinatra": {
@@ -424,22 +422,6 @@
         {
           "title": "action",
           "type": "string"
-        },
-        {
-          "title": "recipientEmail",
-          "type": "string"
-        },
-        {
-          "title": "selectionMode",
-          "type": "string"
-        },
-        {
-          "title": "specificInitialDraftIds",
-          "type": "array"
-        },
-        {
-          "title": "specificFollowUpDraftIds",
-          "type": "array"
         }
       ]
     },
@@ -476,13 +458,10 @@
       "data": {
         "tool": "email_test_delivery_run_send",
         "input": {
-          "recipientEmail": "{{ recipientEmail }}",
-          "selectionMode": "{{ selectionMode }}",
-          "specificInitialDraftIds": "{{ specificInitialDraftIds }}",
-          "specificFollowUpDraftIds": "{{ specificFollowUpDraftIds }}"
+          "envelopeJson": "{{ envelopeJson }}"
         },
         "agent_run_id": "{{ cinatra_run_id }}",
-        "result_input_passthrough": true
+        "result_shape": "test_delivery_send"
       },
       "metadata": {
         "cinatra": {
@@ -498,24 +477,9 @@
           "default": ""
         },
         {
-          "title": "recipientEmail",
+          "title": "envelopeJson",
           "type": "string",
           "default": ""
-        },
-        {
-          "title": "selectionMode",
-          "type": "string",
-          "default": "random_initial"
-        },
-        {
-          "title": "specificInitialDraftIds",
-          "type": "array",
-          "default": []
-        },
-        {
-          "title": "specificFollowUpDraftIds",
-          "type": "array",
-          "default": []
         }
       ],
       "outputs": [
