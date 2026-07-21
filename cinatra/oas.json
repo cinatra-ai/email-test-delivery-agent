@@ -3,7 +3,7 @@
   "component_type": "Flow",
   "id": "email-test-delivery-flow",
   "name": "Email Test Delivery Agent",
-  "description": "Re-entrant HITL surface to send a test preview of an outreach campaign before launch.",
+  "description": "Re-entrant HITL surface to send a test preview of an outreach campaign before launch. The gate COLLECTS input; the RUN performs the send via the run-scoped parse_action -> perform_test_send primitives, then re-enters the sole renderer gate feeding the real result back.",
   "metadata": {
     "cinatra": {
       "type": "node",
@@ -11,7 +11,8 @@
         "@cinatra-ai/email-test-delivery-agent:input"
       ],
       "packageName": "@cinatra-ai/email-test-delivery-agent",
-      "docsRef": "docs/developer/wayflow-input-message-node-contract.md"
+      "docsRef": "docs/developer/wayflow-input-message-node-contract.md",
+      "reentrantGate": "test_form_gate"
     }
   },
   "inputs": [
@@ -21,6 +22,11 @@
       "json_schema": {
         "format": "uuid"
       }
+    },
+    {
+      "title": "cinatra_run_id",
+      "type": "string",
+      "default": ""
     }
   ],
   "outputs": [
@@ -40,6 +46,15 @@
       "$component_ref": "test_form_gate"
     },
     {
+      "$component_ref": "parse_action"
+    },
+    {
+      "$component_ref": "branch_on_action"
+    },
+    {
+      "$component_ref": "perform_test_send"
+    },
+    {
       "$component_ref": "end"
     }
   ],
@@ -56,19 +71,169 @@
     },
     {
       "component_type": "ControlFlowEdge",
-      "name": "test_form_gate_to_end",
+      "name": "test_form_gate_to_parse_action",
       "from_node": {
         "$component_ref": "test_form_gate"
       },
       "to_node": {
+        "$component_ref": "parse_action"
+      }
+    },
+    {
+      "component_type": "ControlFlowEdge",
+      "name": "parse_action_to_branch",
+      "from_node": {
+        "$component_ref": "parse_action"
+      },
+      "to_node": {
+        "$component_ref": "branch_on_action"
+      }
+    },
+    {
+      "component_type": "ControlFlowEdge",
+      "name": "branch_send_to_perform",
+      "from_node": {
+        "$component_ref": "branch_on_action"
+      },
+      "to_node": {
+        "$component_ref": "perform_test_send"
+      },
+      "from_branch": "send"
+    },
+    {
+      "component_type": "ControlFlowEdge",
+      "name": "branch_default_to_end",
+      "from_node": {
+        "$component_ref": "branch_on_action"
+      },
+      "to_node": {
         "$component_ref": "end"
+      },
+      "from_branch": "default"
+    },
+    {
+      "component_type": "ControlFlowEdge",
+      "name": "perform_test_send_to_test_form_gate",
+      "from_node": {
+        "$component_ref": "perform_test_send"
+      },
+      "to_node": {
+        "$component_ref": "test_form_gate"
       }
     }
   ],
   "data_flow_connections": [
     {
       "component_type": "DataFlowEdge",
-      "name": "test_form_gate_to_end_testResult",
+      "name": "gate_testResult_to_parse_userResponse",
+      "source_node": {
+        "$component_ref": "test_form_gate"
+      },
+      "source_output": "testResult",
+      "destination_node": {
+        "$component_ref": "parse_action"
+      },
+      "destination_input": "userResponse"
+    },
+    {
+      "component_type": "DataFlowEdge",
+      "name": "gate_testResult_to_perform_envelope",
+      "source_node": {
+        "$component_ref": "test_form_gate"
+      },
+      "source_output": "testResult",
+      "destination_node": {
+        "$component_ref": "perform_test_send"
+      },
+      "destination_input": "envelopeJson"
+    },
+    {
+      "component_type": "DataFlowEdge",
+      "name": "parse_action_to_branch_action",
+      "source_node": {
+        "$component_ref": "parse_action"
+      },
+      "source_output": "action",
+      "destination_node": {
+        "$component_ref": "branch_on_action"
+      },
+      "destination_input": "action"
+    },
+    {
+      "component_type": "DataFlowEdge",
+      "name": "perform_lastSendResult_to_gate",
+      "source_node": {
+        "$component_ref": "perform_test_send"
+      },
+      "source_output": "lastSendResult",
+      "destination_node": {
+        "$component_ref": "test_form_gate"
+      },
+      "destination_input": "lastSendResult"
+    },
+    {
+      "component_type": "DataFlowEdge",
+      "name": "perform_gateCycle_to_gate",
+      "source_node": {
+        "$component_ref": "perform_test_send"
+      },
+      "source_output": "gateCycle",
+      "destination_node": {
+        "$component_ref": "test_form_gate"
+      },
+      "destination_input": "gateCycle"
+    },
+    {
+      "component_type": "DataFlowEdge",
+      "name": "perform_recipient_to_gate_default",
+      "source_node": {
+        "$component_ref": "perform_test_send"
+      },
+      "source_output": "recipientEmail",
+      "destination_node": {
+        "$component_ref": "test_form_gate"
+      },
+      "destination_input": "defaultRecipientEmail"
+    },
+    {
+      "component_type": "DataFlowEdge",
+      "name": "perform_selectionMode_to_gate_default",
+      "source_node": {
+        "$component_ref": "perform_test_send"
+      },
+      "source_output": "selectionMode",
+      "destination_node": {
+        "$component_ref": "test_form_gate"
+      },
+      "destination_input": "defaultSelectionMode"
+    },
+    {
+      "component_type": "DataFlowEdge",
+      "name": "perform_initialIds_to_gate_default",
+      "source_node": {
+        "$component_ref": "perform_test_send"
+      },
+      "source_output": "specificInitialDraftIds",
+      "destination_node": {
+        "$component_ref": "test_form_gate"
+      },
+      "destination_input": "defaultSpecificInitialDraftIds"
+    },
+    {
+      "component_type": "DataFlowEdge",
+      "name": "perform_followUpIds_to_gate_default",
+      "source_node": {
+        "$component_ref": "perform_test_send"
+      },
+      "source_output": "specificFollowUpDraftIds",
+      "destination_node": {
+        "$component_ref": "test_form_gate"
+      },
+      "destination_input": "defaultSpecificFollowUpDraftIds"
+    },
+    {
+      "component_type": "DataFlowEdge",
+      "name": "gate_testResult_to_end",
       "source_node": {
         "$component_ref": "test_form_gate"
       },
@@ -77,6 +242,30 @@
         "$component_ref": "end"
       },
       "destination_input": "testResult"
+    },
+    {
+      "component_type": "DataFlowEdge",
+      "name": "start_cinatra_run_id_to_parse_action",
+      "source_node": {
+        "$component_ref": "start"
+      },
+      "source_output": "cinatra_run_id",
+      "destination_node": {
+        "$component_ref": "parse_action"
+      },
+      "destination_input": "cinatra_run_id"
+    },
+    {
+      "component_type": "DataFlowEdge",
+      "name": "start_cinatra_run_id_to_perform_test_send",
+      "source_node": {
+        "$component_ref": "start"
+      },
+      "source_output": "cinatra_run_id",
+      "destination_node": {
+        "$component_ref": "perform_test_send"
+      },
+      "destination_input": "cinatra_run_id"
     }
   ],
   "$referenced_components": {
@@ -90,7 +279,8 @@
             "campaignId"
           ],
           "hidden": [
-            "campaignId"
+            "campaignId",
+            "cinatra_run_id"
           ]
         }
       },
@@ -101,6 +291,11 @@
           "json_schema": {
             "format": "uuid"
           }
+        },
+        {
+          "title": "cinatra_run_id",
+          "type": "string",
+          "default": ""
         }
       ]
     },
@@ -112,27 +307,39 @@
         "cinatra": {
           "riskClass": "test_send",
           "requiresApproval": false,
+          "surfaceGateInputs": true,
           "renderer": "@cinatra-ai/email-test-delivery-agent:input",
           "a2uiSurfaceId": "email-test-delivery:gate:input",
+          "maxGateVisits": 25,
           "inputMessageSchema": {
             "type": "object",
             "x-renderer": "@cinatra-ai/email-test-delivery-agent:input",
             "x-envelope": "json-string",
             "x-envelope-shape": {
-              "userResponse": {
+              "action": {
+                "type": "string",
+                "enum": [
+                  "send",
+                  "continue"
+                ]
+              },
+              "recipientEmail": {
                 "type": "string"
               },
-              "lastSendResult": {
-                "type": [
-                  "object",
-                  "null"
-                ]
+              "selectionMode": {
+                "type": "string"
+              },
+              "specificInitialDraftIds": {
+                "type": "array"
+              },
+              "specificFollowUpDraftIds": {
+                "type": "array"
               }
             },
             "properties": {
               "testResult": {
                 "type": "string",
-                "title": "Test result (JSON-encoded { userResponse, lastSendResult })"
+                "title": "Test result (JSON-encoded { action, ...fields })"
               }
             },
             "required": [
@@ -141,11 +348,165 @@
           }
         }
       },
-      "inputs": [],
+      "inputs": [
+        {
+          "title": "lastSendResult",
+          "type": "object",
+          "default": null
+        },
+        {
+          "title": "gateCycle",
+          "type": "integer",
+          "default": 0
+        },
+        {
+          "title": "defaultRecipientEmail",
+          "type": "string",
+          "default": ""
+        },
+        {
+          "title": "defaultSelectionMode",
+          "type": "string",
+          "default": "random_initial"
+        },
+        {
+          "title": "defaultSpecificInitialDraftIds",
+          "type": "array",
+          "default": []
+        },
+        {
+          "title": "defaultSpecificFollowUpDraftIds",
+          "type": "array",
+          "default": []
+        }
+      ],
       "outputs": [
         {
           "title": "testResult",
           "type": "string"
+        }
+      ]
+    },
+    "parse_action": {
+      "component_type": "ApiNode",
+      "id": "parse_action",
+      "name": "Parse gate action",
+      "url": "{{CINATRA_BASE_URL}}/api/agents/passthrough",
+      "http_method": "POST",
+      "data": {
+        "tool": "email_test_delivery_parse_action",
+        "input": {
+          "userResponse": "{{ userResponse }}"
+        },
+        "agent_run_id": "{{ cinatra_run_id }}"
+      },
+      "metadata": {
+        "cinatra": {
+          "riskClass": "read_only",
+          "requiresApproval": false,
+          "packageName": "@cinatra-ai/email-test-delivery-agent"
+        }
+      },
+      "inputs": [
+        {
+          "title": "cinatra_run_id",
+          "type": "string",
+          "default": ""
+        },
+        {
+          "title": "userResponse",
+          "type": "string",
+          "default": ""
+        }
+      ],
+      "outputs": [
+        {
+          "title": "action",
+          "type": "string"
+        }
+      ]
+    },
+    "branch_on_action": {
+      "component_type": "BranchingNode",
+      "id": "branch_on_action",
+      "name": "Branch on parsed action",
+      "metadata": {
+        "cinatra": {
+          "purpose": "route-send-vs-terminal-around-the-reentrant-gate"
+        }
+      },
+      "inputs": [
+        {
+          "title": "action",
+          "type": "string"
+        }
+      ],
+      "outputs": [],
+      "branches": [
+        "default",
+        "send"
+      ],
+      "mapping": {
+        "send": "send"
+      }
+    },
+    "perform_test_send": {
+      "component_type": "ApiNode",
+      "id": "perform_test_send",
+      "name": "Perform the test send",
+      "url": "{{CINATRA_BASE_URL}}/api/agents/passthrough",
+      "http_method": "POST",
+      "data": {
+        "tool": "email_test_delivery_run_send",
+        "input": {
+          "envelopeJson": "{{ envelopeJson }}"
+        },
+        "agent_run_id": "{{ cinatra_run_id }}",
+        "result_shape": "test_delivery_send"
+      },
+      "metadata": {
+        "cinatra": {
+          "riskClass": "write",
+          "requiresApproval": false,
+          "packageName": "@cinatra-ai/email-test-delivery-agent"
+        }
+      },
+      "inputs": [
+        {
+          "title": "cinatra_run_id",
+          "type": "string",
+          "default": ""
+        },
+        {
+          "title": "envelopeJson",
+          "type": "string",
+          "default": ""
+        }
+      ],
+      "outputs": [
+        {
+          "title": "lastSendResult",
+          "type": "object"
+        },
+        {
+          "title": "gateCycle",
+          "type": "integer"
+        },
+        {
+          "title": "recipientEmail",
+          "type": "string"
+        },
+        {
+          "title": "selectionMode",
+          "type": "string"
+        },
+        {
+          "title": "specificInitialDraftIds",
+          "type": "array"
+        },
+        {
+          "title": "specificFollowUpDraftIds",
+          "type": "array"
         }
       ]
     },
