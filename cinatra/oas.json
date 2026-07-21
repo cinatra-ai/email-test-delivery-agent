@@ -307,6 +307,7 @@
         "cinatra": {
           "riskClass": "test_send",
           "requiresApproval": false,
+          "surfaceGateInputs": true,
           "renderer": "@cinatra-ai/email-test-delivery-agent:input",
           "a2uiSurfaceId": "email-test-delivery:gate:input",
           "maxGateVisits": 25,
