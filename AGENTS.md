@@ -1,11 +1,12 @@
----
-name: agent-email-test-delivery
-description: Sends a single test preview of an outreach campaign to a designated recipient before the real campaign launch.
----
+# email-test-delivery-agent — AGENTS.md
 
-This skill documents the test-delivery stage of an email outreach workflow. This stage sends a *test preview only* — not the real campaign batch. The actual test send is invoked via the `email_outreach_send_test_start` MCP primitive (in `packages/trigger-email-send`), called from the HITL renderer's server action — not by the LLM.
+Agent-specific guidance for `@cinatra-ai/email-test-delivery-agent`. This agent has no LLM prompt node; the stage below is implemented declaratively in `cinatra/oas.json`. It carried a bundled SKILL.md until cinatra#2090 — agent extensions no longer ship skill bundles, so the documentation lives here.
 
-This SKILL.md exists for documentation and discovery. The runtime call path is:
+## Test-delivery stage
+
+This section documents the test-delivery stage of an email outreach workflow. This stage sends a *test preview only* — not the real campaign batch. The actual test send is invoked via the `email_outreach_send_test_start` MCP primitive (in `packages/trigger-email-send`), called from the HITL renderer's server action — not by the LLM.
+
+It exists for documentation only — the stage has no LLM prompt. The runtime call path is:
 
   HITL renderer (form + Send button) → server action → `email_outreach_send_test_start` MCP primitive
 
