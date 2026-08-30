@@ -279,7 +279,6 @@
             "campaignId"
           ],
           "hidden": [
-            "campaignId",
             "cinatra_run_id"
           ]
         }
