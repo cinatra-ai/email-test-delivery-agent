@@ -55,6 +55,9 @@
       "$component_ref": "perform_test_send"
     },
     {
+      "$component_ref": "test_summary"
+    },
+    {
       "$component_ref": "end"
     }
   ],
@@ -102,14 +105,24 @@
     },
     {
       "component_type": "ControlFlowEdge",
-      "name": "branch_default_to_end",
+      "name": "branch_default_to_test_summary",
       "from_node": {
         "$component_ref": "branch_on_action"
       },
       "to_node": {
-        "$component_ref": "end"
+        "$component_ref": "test_summary"
       },
       "from_branch": "default"
+    },
+    {
+      "component_type": "ControlFlowEdge",
+      "name": "test_summary_to_end",
+      "from_node": {
+        "$component_ref": "test_summary"
+      },
+      "to_node": {
+        "$component_ref": "end"
+      }
     },
     {
       "component_type": "ControlFlowEdge",
@@ -245,6 +258,30 @@
     },
     {
       "component_type": "DataFlowEdge",
+      "name": "perform_lastSendResult_to_test_summary",
+      "source_node": {
+        "$component_ref": "perform_test_send"
+      },
+      "source_output": "lastSendResult",
+      "destination_node": {
+        "$component_ref": "test_summary"
+      },
+      "destination_input": "lastSendResult"
+    },
+    {
+      "component_type": "DataFlowEdge",
+      "name": "parse_action_to_test_summary",
+      "source_node": {
+        "$component_ref": "parse_action"
+      },
+      "source_output": "action",
+      "destination_node": {
+        "$component_ref": "test_summary"
+      },
+      "destination_input": "action"
+    },
+    {
+      "component_type": "DataFlowEdge",
       "name": "start_cinatra_run_id_to_parse_action",
       "source_node": {
         "$component_ref": "start"
@@ -305,7 +342,7 @@
       "metadata": {
         "cinatra": {
           "riskClass": "test_send",
-          "requiresApproval": false,
+          "requiresApproval": true,
           "surfaceGateInputs": true,
           "renderer": "@cinatra-ai/email-test-delivery-agent:input",
           "a2uiSurfaceId": "email-test-delivery:gate:input",
@@ -508,6 +545,29 @@
           "type": "array"
         }
       ]
+    },
+    "test_summary": {
+      "component_type": "OutputMessageNode",
+      "id": "test_summary",
+      "name": "Test result",
+      "inputs": [
+        {
+          "title": "lastSendResult",
+          "type": "object",
+          "default": null
+        },
+        {
+          "title": "action",
+          "type": "string",
+          "default": ""
+        }
+      ],
+      "message": "{# pyagentspec-input-hint (do not remove): {{ lastSendResult }} {{ action }} #}{% if action == 'halt' %}The test run stopped because it reached its limit of test sends. {% endif %}{% if not lastSendResult %}No test email was sent in this run.{% elif lastSendResult.ok %}{{ lastSendResult.message }}{% else %}The last test email could not be sent: {{ lastSendResult.message }}{% endif %}",
+      "metadata": {
+        "cinatra": {
+          "purpose": "plain-language-test-delivery-ending"
+        }
+      }
     },
     "end": {
       "component_type": "EndNode",
