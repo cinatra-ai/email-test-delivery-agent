@@ -99,7 +99,7 @@ test("(19) an empty, failed or capped test run ends in plain language", () => {
   assert.match(rendered, /\baction\b/, "the sentence never reads why the run ended");
   assert.equal(summary.metadata?.cinatra?.purpose, "plain-language-test-delivery-ending");
   assert.deepEqual(summary.inputs, [
-    { title: "lastSendResult", type: "object", default: null },
+    { title: "lastSendResult", type: "object", default: {} },
     { title: "action", type: "string", default: "" },
   ]);
   assert.equal(countDataEdges("perform_test_send.lastSendResult", "test_summary.lastSendResult"), 1);
@@ -184,4 +184,67 @@ test("an output message declares only inputs its template reads", () => {
     }
   }
   assert.deepEqual(offenders, [], "the runtime rejects an input the template never reads: " + offenders.join(", "));
+});
+
+// ---------------------------------------------------------------------------
+// (C) every declared default fits its declared type
+// ---------------------------------------------------------------------------
+
+/** Whether a default fits a declared JSON schema type, by the rule the
+ *  runtime's spec loader applies at mount: null only where the type carries
+ *  "null", an object only a plain object, an array only a list, a string only a
+ *  string, and the numeric types (number, integer, boolean) a number or a
+ *  boolean. A type written as a list is read as any of its members. */
+function defaultFitsType(value, type) {
+  if (Array.isArray(type)) return type.some((member) => defaultFitsType(value, member));
+  if (value === null) return type === "null";
+  switch (type) {
+    case "object":
+      return typeof value === "object" && !Array.isArray(value);
+    case "array":
+      return Array.isArray(value);
+    case "string":
+      return typeof value === "string";
+    case "number":
+    case "integer":
+    case "boolean":
+      return typeof value === "number" || typeof value === "boolean";
+    default:
+      return false;
+  }
+}
+
+test("(19) every declared default fits its declared type", () => {
+  assert.ok(nodesOfType("OutputMessageNode").length > 0, "the flow has no closing statement to check");
+  const misfits = [];
+  const check = (owner, descriptors) => {
+    for (const d of descriptors ?? []) {
+      if (!Object.hasOwn(d, "default") || d.type === undefined) continue;
+      if (!defaultFitsType(d.default, d.type)) misfits.push(`${owner}.${d.title}`);
+    }
+  };
+  check(oas.id, oas.inputs);
+  check(oas.id, oas.outputs);
+  for (const [id, component] of Object.entries(refs)) {
+    check(id, component.outputs);
+    // The runtime's loader drops a gate's declared inputs before the load.
+    if (component.component_type !== "InputMessageNode") check(id, component.inputs);
+  }
+  assert.deepEqual(
+    misfits,
+    [],
+    "the runtime refuses a default its declared type does not allow: " + misfits.join(", "),
+  );
+
+  const lastSendResult = refs.test_summary.inputs.find((i) => i.title === "lastSendResult");
+  const fallback = lastSendResult.default;
+  assert.ok(
+    fallback !== null && typeof fallback === "object" && !Array.isArray(fallback) && Object.keys(fallback).length === 0,
+    "the closing statement's last send result does not default to an empty object",
+  );
+  const message = String(refs.test_summary.message ?? "");
+  const guard = message.indexOf("{% if not lastSendResult %}");
+  assert.ok(guard >= 0, "the closing sentence does not test for a run with no send");
+  assert.ok(guard < message.indexOf("lastSendResult.ok"), "the sentence reads .ok before it tests for a run with no send");
+  assert.ok(guard < message.indexOf("lastSendResult.message"), "the sentence reads .message before it tests for a run with no send");
 });
