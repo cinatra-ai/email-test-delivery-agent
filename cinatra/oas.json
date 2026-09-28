@@ -554,7 +554,7 @@
         {
           "title": "lastSendResult",
           "type": "object",
-          "default": null
+          "default": {}
         },
         {
           "title": "action",
