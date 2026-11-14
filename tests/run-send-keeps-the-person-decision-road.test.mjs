@@ -31,6 +31,8 @@
 //     nested flow this suite did not read.
 //   - The pins are of the flow and its names. The host's own check of the
 //     person's decision is the platform's pin, not proved here.
+//   - A name the flow supplies is read as text and looked up in a table with
+//     no prototype, so a name that only Object has is not a component.
 //   - Keys of the step outside the ones this suite lists are not allowed; a
 //     harmless change to one of them is a change of this suite.
 // ---------------------------------------------------------------------------
@@ -45,8 +47,17 @@ const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const readJson = (rel) => JSON.parse(readFileSync(path.join(root, rel), "utf8"));
 const oas = readJson("cinatra/oas.json");
 
-const refOf = (r) => r?.$component_ref;
-const steps = oas.$referenced_components;
+// A name the flow supplies (a component ref, an edge end) is read as text, and
+// components are looked up in a table with no prototype: a name such as
+// "constructor", "__proto__" or "toString" finds an own entry of the flow or
+// nothing, never a member inherited from Object.
+// A name is a non-empty text: a missing, empty or non-text name is never a
+// member of anything, so two missing names never match each other.
+const isName = (v) => typeof v === "string" && v !== "";
+const refOf = (r) => (isName(r?.$component_ref) ? r.$component_ref : undefined);
+const table = (obj) => Object.assign(Object.create(null), obj ?? {});
+const lookup = (t, key) => (isName(key) ? t[key] : undefined);
+const steps = table(oas.$referenced_components);
 const nodeIds = (oas.nodes ?? []).map(refOf);
 const edges = (oas.control_flow_connections ?? []).map((e) => ({
   from: refOf(e.from_node),
@@ -86,22 +97,33 @@ const KINDS = ["ApiNode", "BranchingNode", "EndNode", "InputMessageNode", "Outpu
 
 // The ports a step declares: a start node's inputs are what it hands on, an end
 // node's outputs are what it takes in.
-const outputsOf = (c) => (c.component_type === "StartNode" ? c.inputs : c.outputs ?? []).map((p) => p.title);
-const inputsOf = (c) => (c.component_type === "EndNode" ? c.outputs : c.inputs ?? []).map((p) => p.title);
+const portNames = (list) => {
+  assert.ok(Array.isArray(list), "a component has no port list");
+  for (const p of list) assert.ok(isName(p?.title), "a port has no name");
+  return list.map((p) => p.title);
+};
+const outputsOf = (c) => portNames(c.component_type === "StartNode" ? c.inputs : c.outputs ?? []);
+const inputsOf = (c) => portNames(c.component_type === "EndNode" ? c.outputs : c.inputs ?? []);
 
 test("the flow is a well-formed flat graph (red: a node with no component, a component that is not a node, an edge to nowhere, a port that is not declared, a nested flow or another component kind)", () => {
   assert.deepEqual([...nodeIds].sort(), Object.keys(steps).sort(), "a component is not a node of the flow, or a node has no component");
+  assert.ok(nodeIds.every(isName), "a node of the flow has no name");
   assert.equal(new Set(nodeIds).size, nodeIds.length, "a node is listed twice");
   for (const [key, c] of Object.entries(steps)) {
     assert.equal(c.id, key, `${key} is stored under another id`);
     assert.ok(KINDS.includes(c.component_type), `${key} is a ${c.component_type}, which this suite does not read`);
   }
   assert.ok(nodeIds.includes(refOf(oas.start_node)), "the start node is not a node of the flow");
-  for (const e of edges) assert.ok(nodeIds.includes(e.from) && nodeIds.includes(e.to), `a control edge has an end that is not a node: ${e.from} -> ${e.to}`);
+  for (const e of edges) {
+    assert.ok(isName(e.from) && isName(e.to), "a control edge has an end with no name");
+    assert.ok(nodeIds.includes(e.from) && nodeIds.includes(e.to), `a control edge has an end that is not a node: ${e.from} -> ${e.to}`);
+  }
   for (const e of dataEdges) {
+    assert.ok(isName(e.from) && isName(e.to), "a data edge has an end with no name");
     assert.ok(nodeIds.includes(e.from) && nodeIds.includes(e.to), `a data edge has an end that is not a node: ${e.from} -> ${e.to}`);
-    assert.ok(outputsOf(steps[e.from]).includes(e.out), `${e.from} declares no output ${e.out}`);
-    assert.ok(inputsOf(steps[e.to]).includes(e.inp), `${e.to} declares no input ${e.inp}`);
+    assert.ok(isName(e.out) && isName(e.inp), `a data edge ${e.from} -> ${e.to} names no port`);
+    assert.ok(outputsOf(lookup(steps, e.from)).includes(e.out), `${e.from} declares no output ${e.out}`);
+    assert.ok(inputsOf(lookup(steps, e.to)).includes(e.inp), `${e.to} declares no input ${e.inp}`);
   }
 });
 
@@ -114,7 +136,7 @@ test("every model or passthrough step of the flow is a POST to the passthrough, 
   }
 });
 
-test("the send step calls the host's run-send tool and nothing else is on it (red: another tool name, result shape or key on the step)", () => {
+test("the send step is the host's run-send tool call with exactly the keys this suite lists (red: another tool name or result shape, or another key on the step or its data)", () => {
   const step = steps[SEND];
   assert.deepEqual(Object.keys(step).sort(), ["component_type", "data", "http_method", "id", "inputs", "metadata", "name", "outputs", "url"]);
   assert.deepEqual(Object.keys(step.data).sort(), ["agent_run_id", "input", "result_shape", "tool"]);
@@ -140,7 +162,8 @@ test("the send step carries the person's submission and the run id and nothing e
   assert.deepEqual(sourcesOf(SEND, "cinatra_run_id"), ["start.cinatra_run_id"], "the run id comes from somewhere else than the flow's run id");
 });
 
-test("the person's answer reaches the parse step and the parsed action reaches the branch (red: another source for either input, a constant in place of the answer, or the run id of the parse step rerouted)", () => {
+test("the person's answer reaches the parse step and the parsed action reaches the branch (red: another source for either input, a constant in place of the answer in the parse step's input, or the run id of the parse step rerouted)", () => {
+  assert.deepEqual(steps[PARSE].data.input, { userResponse: "{{ userResponse }}" }, "the parse step's input is not the slot of the person's answer");
   assert.deepEqual(sourcesOf(PARSE, "userResponse"), [`${GATE}.testResult`], "the parse step reads something else than the gate's answer");
   assert.deepEqual(sourcesOf(PARSE, "cinatra_run_id"), ["start.cinatra_run_id"]);
   assert.deepEqual(sourcesOf(BRANCH, "action"), [`${PARSE}.action`], "the branch reads something else than the parsed action");
