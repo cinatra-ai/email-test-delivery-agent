@@ -1,13 +1,15 @@
 // Lifecycle D W8 — the email test-delivery agent's own steps (cinatra#3096
 // items 9 and 19).
 //
-// (9) The test screen is the one place this run stops for the person. The
-// manifest and the flow say so together: the screen is the flow's declared
-// pause and its re-entrant gate, the node carries the approval flag, and the
-// manifest claims the gate its flow has.
+// (9) The test screen is the one place this run's own flow stops for the
+// person. It is the flow's declared pause and its re-entrant gate, and it only
+// collects input: it carries no approval flag of its own, and the manifest
+// claims no approval gate. The one approval in front of the test send is the
+// host's publish card (cinatra#4150), which the host puts in front of the
+// declared publishing step.
 //
-// (19) A run that ends — the person pressed Continue, or the run reached its
-// limit of test sends — closes with a plain sentence about the last test email,
+// (19) A run that ends — the person pressed Continue, the run reached its
+// limit of test sends, or the host could not prepare a test send — closes with a plain sentence about the last test email,
 // never with the raw answer the form produced.
 //
 // The last two arms re-state the runtime loader's two mount rules over this
@@ -52,11 +54,11 @@ test("(9) the test screen is declared as the one pause it is", () => {
   const [gate] = pauses;
   assert.deepEqual(oas.metadata.cinatra.hitlScreens, [gate.metadata.cinatra.renderer]);
   assert.equal(oas.metadata.cinatra.reentrantGate, gate.id);
-  assert.equal(gate.metadata.cinatra.requiresApproval, true, `the "${gate.id}" pause is not declared as a pause`);
+  assert.equal(Object.hasOwn(gate.metadata.cinatra, "requiresApproval"), false, `the "${gate.id}" pause carries an approval of its own`);
 });
 
-test("(9) the manifest claims the gate its flow has", () => {
-  assert.equal(pkg.cinatra.hasApprovalGates, true, "the manifest denies the pause its flow has");
+test("(9) the manifest claims no approval gate, since the flow has none of its own", () => {
+  assert.equal(pkg.cinatra.hasApprovalGates, false, "the manifest claims an approval gate the flow does not have");
 });
 
 // ---------------------------------------------------------------------------
@@ -86,14 +88,16 @@ test("(19) an empty, failed or capped test run ends in plain language", () => {
     message,
     "{# pyagentspec-input-hint (do not remove): {{ lastSendResult }} {{ action }} #}" +
       "{% if action == 'halt' %}The test run stopped because it reached its limit of test sends. {% endif %}" +
+      "{% if action == 'send' %}The test run stopped because the test send could not be prepared. {% endif %}" +
       "{% if not lastSendResult %}No test email was sent in this run." +
       "{% elif lastSendResult.ok %}{{ lastSendResult.message }}" +
       "{% else %}The last test email could not be sent: {{ lastSendResult.message }}{% endif %}",
-    "the closing sentence does not branch on a capped, empty, sent or failed run as written",
+    "the closing sentence does not branch on a capped, unprepared, empty, sent or failed run as written",
   );
   assert.match(message, /no test email was sent/i, "an empty run has no plain-language ending");
   assert.match(message, /could not be sent/i, "a failed send has no plain-language ending");
   assert.match(message, /limit of test sends/i, "a capped run has no plain-language ending");
+  assert.match(message, /could not be prepared/i, "a run whose test send could not be prepared has no plain-language ending");
   const rendered = outsideComment(message);
   assert.match(rendered, /\blastSendResult\b/, "the sentence never reads the last send result");
   assert.match(rendered, /\baction\b/, "the sentence never reads why the run ended");
