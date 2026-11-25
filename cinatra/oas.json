@@ -331,9 +331,9 @@
     },
     {
       "component_type": "DataFlowEdge",
-      "name": "perform_recipient_to_gate_default",
+      "name": "parse_recipient_to_gate_default",
       "source_node": {
-        "$component_ref": "perform_test_send"
+        "$component_ref": "parse_action"
       },
       "source_output": "recipientEmail",
       "destination_node": {
@@ -343,9 +343,9 @@
     },
     {
       "component_type": "DataFlowEdge",
-      "name": "perform_selectionMode_to_gate_default",
+      "name": "parse_selectionMode_to_gate_default",
       "source_node": {
-        "$component_ref": "perform_test_send"
+        "$component_ref": "parse_action"
       },
       "source_output": "selectionMode",
       "destination_node": {
@@ -355,9 +355,9 @@
     },
     {
       "component_type": "DataFlowEdge",
-      "name": "perform_initialIds_to_gate_default",
+      "name": "parse_initialIds_to_gate_default",
       "source_node": {
-        "$component_ref": "perform_test_send"
+        "$component_ref": "parse_action"
       },
       "source_output": "specificInitialDraftIds",
       "destination_node": {
@@ -367,9 +367,9 @@
     },
     {
       "component_type": "DataFlowEdge",
-      "name": "perform_followUpIds_to_gate_default",
+      "name": "parse_followUpIds_to_gate_default",
       "source_node": {
-        "$component_ref": "perform_test_send"
+        "$component_ref": "parse_action"
       },
       "source_output": "specificFollowUpDraftIds",
       "destination_node": {
@@ -603,6 +603,26 @@
         {
           "title": "action",
           "type": "string"
+        },
+        {
+          "title": "recipientEmail",
+          "type": "string",
+          "description": "The recipient the person submitted, on a send; the form shows it on its next visit."
+        },
+        {
+          "title": "selectionMode",
+          "type": "string",
+          "description": "The selection mode the person submitted, on a send; the form shows it on its next visit."
+        },
+        {
+          "title": "specificInitialDraftIds",
+          "type": "array",
+          "description": "The initial draft ids the person submitted, on a send; the form shows them on its next visit."
+        },
+        {
+          "title": "specificFollowUpDraftIds",
+          "type": "array",
+          "description": "The follow-up draft ids the person submitted, on a send; the form shows them on its next visit."
         }
       ]
     },

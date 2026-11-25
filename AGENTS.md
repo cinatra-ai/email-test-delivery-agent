@@ -11,6 +11,7 @@ This stage sends a *test preview only*, not the real campaign batch. Since cinat
 - `branch_on_action`: `send` goes to the plan step; every other action (`continue`, `halt`) goes to `test_summary` and the end.
 - `branch_on_plan` on the plan's `ok`: `true` goes to the send step; `false` (a refusal the host recorded) goes back to the form with `lastSendResult` and `gateCycle`; an answer with no `ok` (a host fault) goes to `test_summary`, which says the test send could not be prepared.
 - `perform_test_send` declares `publishes: true` and three `publishRows`: From (`sender`), To (`recipient`) and Drafts (`drafts`, columns `subject` and `preview`). Its inputs `sender`, `recipient`, `drafts` and `planJson` come straight from `plan_test_send`. The host stops the run in front of it and shows the card; on approval the step sends exactly `planJson`; on a decline or an expiry the host stops the run.
+- The form's defaults (`defaultRecipientEmail`, `defaultSelectionMode`, `defaultSpecificInitialDraftIds`, `defaultSpecificFollowUpDraftIds`) come from `parse_action`'s parsed submission, so the form shows what the person submitted on every road back to it: after a refused plan and after a send.
 - A host without `campaign_test_send_plan` refuses the plan call; the run fails at `plan_test_send` and nothing is sent. There is no fall back to the earlier send shape.
 
 ## Inputs

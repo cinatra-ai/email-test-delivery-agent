@@ -253,7 +253,30 @@ const PLAN_REFUSED = {
   lastSendResult: { ok: false, message: "Enter a valid recipient email address for the test send." }, gateCycle: 3,
 };
 const SENT = { lastSendResult: { ok: true, message: "Test email sent to tester@example.com.", sentTo: "tester@example.com" }, gateCycle: 4, recipientEmail: "tester@example.com", selectionMode: "random_initial", specificInitialDraftIds: [], specificFollowUpDraftIds: [] };
-const envelope = (action) => JSON.stringify({ action, recipientEmail: "tester@example.com", selectionMode: "random_initial" });
+const envelope = (action, fields = { recipientEmail: "tester@example.com", selectionMode: "random_initial" }) => JSON.stringify({ action, ...fields });
+const SUBMITTED = {
+  recipientEmail: "first@example.com",
+  selectionMode: "specific_initial",
+  specificInitialDraftIds: ["d-1", "d-2"],
+  specificFollowUpDraftIds: ["f-1"],
+};
+const RESUBMITTED = {
+  recipientEmail: "second@example.com",
+  selectionMode: "all_initial",
+  specificInitialDraftIds: [],
+  specificFollowUpDraftIds: ["f-9"],
+};
+/** The form's defaults on its next visit, as the walk hands them to it. */
+const formDefaults = (inputs) => ({
+  recipientEmail: inputs.defaultRecipientEmail,
+  selectionMode: inputs.defaultSelectionMode,
+  specificInitialDraftIds: inputs.defaultSpecificInitialDraftIds,
+  specificFollowUpDraftIds: inputs.defaultSpecificFollowUpDraftIds,
+});
+const refusal = (reason, seq) => ({
+  ...PLAN_REFUSED, reason, seq, gateCycle: seq,
+  lastSendResult: { ok: false, message: `refused: ${reason}` },
+});
 
 /** Render a call's data the way the passthrough body is built: each "{{ name }}" is the step's input, a leading
  *  {# #} comment is dropped. */
@@ -341,8 +364,17 @@ function walk({ answers, host, decide }) {
   throw new Error("the walk did not end");
 }
 
+// The parse tool's answer as the host's parseGateEnvelope gives it: on send, the action and each submitted field that
+// is present; otherwise the action only.
+const parseAnswer = (userResponse) => {
+  const env = JSON.parse(userResponse);
+  if (env.action !== "send") return { action: env.action };
+  const out = { action: "send" };
+  for (const k of ["recipientEmail", "selectionMode", "specificInitialDraftIds", "specificFollowUpDraftIds"]) if (k in env) out[k] = env[k];
+  return out;
+};
 const hostWith = (planAnswer) => (tool, body) => {
-  if (tool === "email_test_delivery_parse_action") return { action: JSON.parse(body.input.userResponse).action };
+  if (tool === "email_test_delivery_parse_action") return parseAnswer(body.input.userResponse);
   if (tool === PLAN_TOOL) return typeof planAnswer === "function" ? planAnswer(body) : planAnswer;
   if (tool === SEND_TOOL) return SENT;
   throw new Error(`unexpected tool ${tool}`);
@@ -404,4 +436,52 @@ test("walk: continue ends the run through the closing statement without a plan o
   const run = walk({ answers: [envelope("continue")], host: hostWith(PLAN_OK), decide: () => "approve" });
   assert.equal(run.ended, "completed");
   assert.deepEqual(run.calls.map((c) => c.tool), ["email_test_delivery_parse_action"]);
+});
+
+// ---------------------------------------------------------------------------
+// what the person submitted is what the form shows on its next visit
+// ---------------------------------------------------------------------------
+
+for (const reason of ["invalid_recipient", "no_drafts_selected", "plan_too_large"]) {
+  test(`walk: after a refused plan (${reason}) the form shows the recipient, the selection mode and the draft ids as submitted (red: the form reopening with blank, random or stale values)`, () => {
+    const run = walk({ answers: [envelope("send", SUBMITTED)], host: hostWith(refusal(reason, 5)), decide: () => "approve" });
+    assert.equal(run.ended, "paused");
+    assert.equal(run.at, GATE);
+    assert.deepEqual(formDefaults(run.inputs), SUBMITTED);
+    assert.equal(run.inputs.gateCycle, 5);
+  });
+}
+
+test("walk: after an approved send the form shows the values as submitted, not the send's reset ones (red: the selection falling back to random_initial and empty ids)", () => {
+  const run = walk({ answers: [envelope("send", SUBMITTED)], host: hostWith(PLAN_OK), decide: () => "approve" });
+  assert.equal(run.ended, "paused");
+  assert.ok(run.calls.some((c) => c.tool === SEND_TOOL));
+  assert.deepEqual(formDefaults(run.inputs), SUBMITTED);
+});
+
+test("walk: a second submission overrides the first on the form's next visit, after a refusal and after a send (red: a stale first value)", () => {
+  let plans = 0;
+  const refuseFirst = () => (plans++ === 0 ? refusal("invalid_recipient", 5) : PLAN_OK);
+  const afterRefusal = walk({ answers: [envelope("send", SUBMITTED), envelope("send", RESUBMITTED)], host: hostWith(refuseFirst), decide: () => "approve" });
+  assert.equal(afterRefusal.at, GATE);
+  assert.deepEqual(formDefaults(afterRefusal.inputs), RESUBMITTED);
+  const twoRefusals = walk({ answers: [envelope("send", SUBMITTED), envelope("send", RESUBMITTED)], host: hostWith(refusal("no_drafts_selected", 6)), decide: () => "approve" });
+  assert.deepEqual(formDefaults(twoRefusals.inputs), RESUBMITTED);
+  const twoSends = walk({ answers: [envelope("send", SUBMITTED), envelope("send", RESUBMITTED)], host: hostWith(PLAN_OK), decide: () => "approve" });
+  assert.equal(twoSends.calls.filter((c) => c.tool === SEND_TOOL).length, 2);
+  assert.deepEqual(formDefaults(twoSends.inputs), RESUBMITTED);
+});
+
+test("the form's defaults come only from the parsed submission, on every road back to the form (red: the send step or the plan step feeding a default)", () => {
+  const pairs = {
+    defaultRecipientEmail: "recipientEmail",
+    defaultSelectionMode: "selectionMode",
+    defaultSpecificInitialDraftIds: "specificInitialDraftIds",
+    defaultSpecificFollowUpDraftIds: "specificFollowUpDraftIds",
+  };
+  for (const [input, output] of Object.entries(pairs)) {
+    assert.deepEqual(sourcesOf(GATE, input), [`${PARSE}.${output}`], `${input} comes from somewhere else than the parsed submission`);
+    assert.ok(steps[PARSE].outputs.some((o) => o.title === output), `the parse step does not declare ${output}`);
+  }
+  assert.deepEqual(into(PARSE).map((e) => e.from), [GATE], "a road reaches the form's defaults without the parse step");
 });
