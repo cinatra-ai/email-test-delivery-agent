@@ -3,7 +3,7 @@
   "component_type": "Flow",
   "id": "email-test-delivery-flow",
   "name": "Email Test Delivery Agent",
-  "description": "Re-entrant HITL surface to send a test preview of an outreach campaign before launch. The gate COLLECTS input; the RUN performs the send via the run-scoped parse_action -> perform_test_send primitives, then re-enters the sole renderer gate feeding the real result back.",
+  "description": "Re-entrant surface to send a test preview of an outreach campaign before launch. The form COLLECTS input; the run plans the test send with the host's campaign_test_send_plan (which sends nothing), the host stops the run in front of perform_test_send and shows its publish card (From, To, Drafts), and only after a person approves there does the run send exactly that plan, then re-enter the form with the real result.",
   "metadata": {
     "cinatra": {
       "type": "node",
@@ -52,6 +52,12 @@
       "$component_ref": "branch_on_action"
     },
     {
+      "$component_ref": "plan_test_send"
+    },
+    {
+      "$component_ref": "branch_on_plan"
+    },
+    {
       "$component_ref": "perform_test_send"
     },
     {
@@ -94,14 +100,57 @@
     },
     {
       "component_type": "ControlFlowEdge",
-      "name": "branch_send_to_perform",
+      "name": "branch_send_to_plan",
       "from_node": {
         "$component_ref": "branch_on_action"
+      },
+      "to_node": {
+        "$component_ref": "plan_test_send"
+      },
+      "from_branch": "send"
+    },
+    {
+      "component_type": "ControlFlowEdge",
+      "name": "plan_to_branch_on_plan",
+      "from_node": {
+        "$component_ref": "plan_test_send"
+      },
+      "to_node": {
+        "$component_ref": "branch_on_plan"
+      }
+    },
+    {
+      "component_type": "ControlFlowEdge",
+      "name": "plan_ok_to_perform",
+      "from_node": {
+        "$component_ref": "branch_on_plan"
       },
       "to_node": {
         "$component_ref": "perform_test_send"
       },
       "from_branch": "send"
+    },
+    {
+      "component_type": "ControlFlowEdge",
+      "name": "plan_refused_to_test_form_gate",
+      "from_node": {
+        "$component_ref": "branch_on_plan"
+      },
+      "to_node": {
+        "$component_ref": "test_form_gate"
+      },
+      "from_branch": "refused"
+    },
+    {
+      "component_type": "ControlFlowEdge",
+      "name": "plan_fault_to_test_summary",
+      "from_node": {
+        "$component_ref": "branch_on_plan"
+      },
+      "to_node": {
+        "$component_ref": "test_summary"
+      },
+      "from_branch": "default"
     },
     {
       "component_type": "ControlFlowEdge",
@@ -150,15 +199,99 @@
     },
     {
       "component_type": "DataFlowEdge",
-      "name": "gate_testResult_to_perform_envelope",
+      "name": "gate_testResult_to_plan_envelope",
       "source_node": {
         "$component_ref": "test_form_gate"
       },
       "source_output": "testResult",
       "destination_node": {
-        "$component_ref": "perform_test_send"
+        "$component_ref": "plan_test_send"
       },
       "destination_input": "envelopeJson"
+    },
+    {
+      "component_type": "DataFlowEdge",
+      "name": "plan_ok_to_branch",
+      "source_node": {
+        "$component_ref": "plan_test_send"
+      },
+      "source_output": "ok",
+      "destination_node": {
+        "$component_ref": "branch_on_plan"
+      },
+      "destination_input": "ok"
+    },
+    {
+      "component_type": "DataFlowEdge",
+      "name": "plan_lastSendResult_to_gate",
+      "source_node": {
+        "$component_ref": "plan_test_send"
+      },
+      "source_output": "lastSendResult",
+      "destination_node": {
+        "$component_ref": "test_form_gate"
+      },
+      "destination_input": "lastSendResult"
+    },
+    {
+      "component_type": "DataFlowEdge",
+      "name": "plan_gateCycle_to_gate",
+      "source_node": {
+        "$component_ref": "plan_test_send"
+      },
+      "source_output": "gateCycle",
+      "destination_node": {
+        "$component_ref": "test_form_gate"
+      },
+      "destination_input": "gateCycle"
+    },
+    {
+      "component_type": "DataFlowEdge",
+      "name": "plan_sender_to_perform",
+      "source_node": {
+        "$component_ref": "plan_test_send"
+      },
+      "source_output": "sender",
+      "destination_node": {
+        "$component_ref": "perform_test_send"
+      },
+      "destination_input": "sender"
+    },
+    {
+      "component_type": "DataFlowEdge",
+      "name": "plan_recipient_to_perform",
+      "source_node": {
+        "$component_ref": "plan_test_send"
+      },
+      "source_output": "recipient",
+      "destination_node": {
+        "$component_ref": "perform_test_send"
+      },
+      "destination_input": "recipient"
+    },
+    {
+      "component_type": "DataFlowEdge",
+      "name": "plan_drafts_to_perform",
+      "source_node": {
+        "$component_ref": "plan_test_send"
+      },
+      "source_output": "drafts",
+      "destination_node": {
+        "$component_ref": "perform_test_send"
+      },
+      "destination_input": "drafts"
+    },
+    {
+      "component_type": "DataFlowEdge",
+      "name": "plan_planJson_to_perform",
+      "source_node": {
+        "$component_ref": "plan_test_send"
+      },
+      "source_output": "planJson",
+      "destination_node": {
+        "$component_ref": "perform_test_send"
+      },
+      "destination_input": "planJson"
     },
     {
       "component_type": "DataFlowEdge",
@@ -294,6 +427,18 @@
     },
     {
       "component_type": "DataFlowEdge",
+      "name": "start_cinatra_run_id_to_plan_test_send",
+      "source_node": {
+        "$component_ref": "start"
+      },
+      "source_output": "cinatra_run_id",
+      "destination_node": {
+        "$component_ref": "plan_test_send"
+      },
+      "destination_input": "cinatra_run_id"
+    },
+    {
+      "component_type": "DataFlowEdge",
       "name": "start_cinatra_run_id_to_perform_test_send",
       "source_node": {
         "$component_ref": "start"
@@ -338,11 +483,10 @@
     "test_form_gate": {
       "component_type": "InputMessageNode",
       "id": "test_form_gate",
-      "name": "Send a test email",
+      "name": "Choose a test email",
       "metadata": {
         "cinatra": {
-          "riskClass": "test_send",
-          "requiresApproval": true,
+          "description": "Choose who receives the test email and which drafts it includes. This form only collects your choice: the next step shows what will be sent, and the test email goes out only after a person approves it on the publish card.",
           "surfaceGateInputs": true,
           "renderer": "@cinatra-ai/email-test-delivery-agent:input",
           "a2uiSurfaceId": "email-test-delivery:gate:input",
@@ -486,14 +630,14 @@
         "send": "send"
       }
     },
-    "perform_test_send": {
+    "plan_test_send": {
       "component_type": "ApiNode",
-      "id": "perform_test_send",
-      "name": "Perform the test send",
+      "id": "plan_test_send",
+      "name": "Plan the test send",
       "url": "{{CINATRA_BASE_URL}}/api/agents/passthrough",
       "http_method": "POST",
       "data": {
-        "tool": "email_test_delivery_run_send",
+        "tool": "campaign_test_send_plan",
         "input": {
           "envelopeJson": "{{ envelopeJson }}"
         },
@@ -504,7 +648,9 @@
         "cinatra": {
           "riskClass": "write",
           "requiresApproval": false,
-          "packageName": "@cinatra-ai/email-test-delivery-agent"
+          "publishes": false,
+          "packageName": "@cinatra-ai/email-test-delivery-agent",
+          "description": "A model-free call of the host's campaign_test_send_plan on the passthrough road. It sends nothing and changes no draft: it resolves, once, the recipient the person typed and the drafts they chose (a random pick is made here and pinned) and answers what the publish card of the send step shows (sender, recipient, drafts with subject and preview) and the pinned plan the send takes (planJson). A refusal (no valid recipient, no drafts, too many drafts, a plan too large to show, no campaign access) is recorded by the host in the run's test-send record, which advances the form's cycle, so this step makes no external write; it answers ok false with lastSendResult and gateCycle, and the run goes back to the form. A host without this tool refuses the call, the run fails at this step and nothing is sent."
         }
       },
       "inputs": [
@@ -517,6 +663,150 @@
           "title": "envelopeJson",
           "type": "string",
           "default": ""
+        }
+      ],
+      "outputs": [
+        {
+          "title": "ok",
+          "type": "boolean",
+          "description": "True when the host planned the test send; false for a recorded refusal."
+        },
+        {
+          "title": "sender",
+          "type": "string",
+          "description": "The From of the test messages as a person reads it; the card's From row."
+        },
+        {
+          "title": "recipient",
+          "type": "string",
+          "description": "The recipient as typed and validated; the card's To row."
+        },
+        {
+          "title": "drafts",
+          "type": "array",
+          "description": "One record per draft the send mails, with subject, preview, draftId and revision (at most 50); the card's Drafts row shows subject and preview."
+        },
+        {
+          "title": "draftCount",
+          "type": "integer",
+          "description": "The number of drafts in the plan."
+        },
+        {
+          "title": "planJson",
+          "type": "string",
+          "description": "The pinned plan the send step sends, as the host answered it."
+        },
+        {
+          "title": "lastSendResult",
+          "type": "object",
+          "description": "The refusal the form shows on a refused plan; null on a planned one."
+        },
+        {
+          "title": "gateCycle",
+          "type": "integer",
+          "description": "The form's cycle after a recorded refusal; 0 on a planned one."
+        }
+      ]
+    },
+    "branch_on_plan": {
+      "component_type": "BranchingNode",
+      "id": "branch_on_plan",
+      "name": "Branch on the plan",
+      "metadata": {
+        "cinatra": {
+          "purpose": "route-a-planned-test-send-to-the-publish-card-and-a-refusal-back-to-the-form"
+        }
+      },
+      "inputs": [
+        {
+          "title": "ok",
+          "type": "string"
+        }
+      ],
+      "outputs": [],
+      "branches": [
+        "default",
+        "refused",
+        "send"
+      ],
+      "mapping": {
+        "true": "send",
+        "false": "refused"
+      }
+    },
+    "perform_test_send": {
+      "component_type": "ApiNode",
+      "id": "perform_test_send",
+      "name": "Perform the test send",
+      "url": "{{CINATRA_BASE_URL}}/api/agents/passthrough",
+      "http_method": "POST",
+      "data": {
+        "tool": "email_test_delivery_run_send",
+        "input": {
+          "planJson": "{# pyagentspec-input-hint (do not remove): {{ sender }} {{ recipient }} {{ drafts }} #}{{ planJson }}"
+        },
+        "agent_run_id": "{{ cinatra_run_id }}",
+        "result_shape": "test_delivery_send"
+      },
+      "metadata": {
+        "cinatra": {
+          "riskClass": "test_send",
+          "requiresApproval": false,
+          "publishes": true,
+          "publishRows": [
+            {
+              "label": "From",
+              "input": "sender"
+            },
+            {
+              "label": "To",
+              "input": "recipient"
+            },
+            {
+              "kind": "list",
+              "label": "Drafts",
+              "input": "drafts",
+              "columns": [
+                {
+                  "label": "Subject",
+                  "field": "subject"
+                },
+                {
+                  "label": "Preview",
+                  "field": "preview"
+                }
+              ]
+            }
+          ],
+          "packageName": "@cinatra-ai/email-test-delivery-agent",
+          "description": "The flow's one publishing step: a model-free call of the host's email_test_delivery_run_send on the passthrough road that sends exactly the plan the plan step answered (planJson) and nothing else. Sending a test email is an external write, so the host stops the run in front of this step and shows its publish card with the three rows declared here (From, To, Drafts with Subject and Preview); the run reaches the step only after a person chose to send there. The step's inputs come by data edges straight from the plan step, unchanged, so the card shows what the plan answered and the host checks the released decision against the plan before it mails. When the person declines the card, or it expires, the host stops the run and nothing is sent. The step returns the send's result to the form (lastSendResult, gateCycle and the form's defaults), so the person can plan another test send. requiresApproval is false because the publish card is the one approval in front of the send."
+        }
+      },
+      "inputs": [
+        {
+          "title": "cinatra_run_id",
+          "type": "string",
+          "default": ""
+        },
+        {
+          "title": "sender",
+          "type": "string",
+          "description": "The From of the test messages, as the plan step answered it; the card's From row."
+        },
+        {
+          "title": "recipient",
+          "type": "string",
+          "description": "The recipient, as the plan step answered it; the card's To row."
+        },
+        {
+          "title": "drafts",
+          "type": "array",
+          "description": "The drafts the send mails, as the plan step answered them; the card's Drafts row shows each subject and preview."
+        },
+        {
+          "title": "planJson",
+          "type": "string",
+          "description": "The pinned plan, as the plan step answered it; the only argument of the send."
         }
       ],
       "outputs": [
@@ -562,7 +852,7 @@
           "default": ""
         }
       ],
-      "message": "{# pyagentspec-input-hint (do not remove): {{ lastSendResult }} {{ action }} #}{% if action == 'halt' %}The test run stopped because it reached its limit of test sends. {% endif %}{% if not lastSendResult %}No test email was sent in this run.{% elif lastSendResult.ok %}{{ lastSendResult.message }}{% else %}The last test email could not be sent: {{ lastSendResult.message }}{% endif %}",
+      "message": "{# pyagentspec-input-hint (do not remove): {{ lastSendResult }} {{ action }} #}{% if action == 'halt' %}The test run stopped because it reached its limit of test sends. {% endif %}{% if action == 'send' %}The test run stopped because the test send could not be prepared. {% endif %}{% if not lastSendResult %}No test email was sent in this run.{% elif lastSendResult.ok %}{{ lastSendResult.message }}{% else %}The last test email could not be sent: {{ lastSendResult.message }}{% endif %}",
       "metadata": {
         "cinatra": {
           "purpose": "plain-language-test-delivery-ending"
